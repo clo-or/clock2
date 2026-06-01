@@ -81,6 +81,7 @@ st.markdown("""
     /* Code/Formula styling */
     .formula-box {
         background-color: #0f172a;
+        color: #ffffff;
         padding: 15px;
         border-left: 4px solid #818cf8;
         border-radius: 4px;
