@@ -25,7 +25,7 @@ from statsmodels.tsa.api import ExponentialSmoothing
 
 # Page Configuration
 st.set_page_config(
-    page_title="Time Series Anomaly Detection Platform",
+    page_title="시계열 이상탐지 플랫폼",
     page_icon="⏰",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -90,8 +90,8 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Main Title & Subtitle
-st.markdown('<div class="main-title">⏰ Multi-Variate Time Series Anomaly Detection Platform</div>', unsafe_allow_html=True)
-st.markdown('<div class="subtitle">Upload arbitrary time series data, automatically analyze statistical properties, and deploy advanced anomaly detection models.</div>', unsafe_allow_html=True)
+st.markdown('<div class="main-title">⏰ 다변량 시계열 이상탐지 플랫폼</div>', unsafe_allow_html=True)
+st.markdown('<div class="subtitle">임의의 시계열 데이터를 업로드하여 통계적 특성을 자동으로 분석하고, 고급 이상탐지 모델을 적용할 수 있습니다.</div>', unsafe_allow_html=True)
 
 # -------------------------------------------------------------
 # 1. MATHEMATICALLY RIGOROUS HELPER FUNCTIONS
@@ -231,36 +231,41 @@ def fit_predict_ridge_lags(X_scaled, split_idx, lags=[1, 2, 3, 24]):
 # -------------------------------------------------------------
 # 2. SIDEBAR CONFIGURATION
 # -------------------------------------------------------------
-st.sidebar.markdown("### 📂 Data Source & Variables")
+st.sidebar.markdown("### 📂 데이터 소스 및 변수 설정")
 
-data_source = st.sidebar.selectbox(
-    "Select Data Source",
-    options=["Industrial Sensor (Synthetic Sample)", "Upload Custom CSV"]
+data_source_map = {
+    "산업용 센서 데이터 (가상 샘플)": "Industrial Sensor (Synthetic Sample)",
+    "사용자 정의 CSV 업로드": "Upload Custom CSV"
+}
+data_source_ui = st.sidebar.selectbox(
+    "데이터 소스 선택",
+    options=list(data_source_map.keys())
 )
+data_source = data_source_map[data_source_ui]
 
 if data_source == "Upload Custom CSV":
-    uploaded_file = st.sidebar.file_uploader("Upload CSV file", type=["csv"])
+    uploaded_file = st.sidebar.file_uploader("CSV 파일 업로드", type=["csv"])
     if uploaded_file is not None:
         try:
             raw_df = pd.read_csv(uploaded_file)
-            st.sidebar.success("File uploaded successfully!")
+            st.sidebar.success("파일이 성공적으로 업로드되었습니다!")
         except Exception as e:
-            st.sidebar.error(f"Error reading file: {e}")
+            st.sidebar.error(f"파일 읽기 오류: {e}")
             raw_df = generate_synthetic_data()
     else:
-        st.sidebar.info("Using sample synthetic data until custom CSV is uploaded.")
+        st.sidebar.info("사용자 정의 CSV 파일이 업로드되기 전까지 가상 샘플 데이터를 사용합니다.")
         raw_df = generate_synthetic_data()
 else:
     raw_df = generate_synthetic_data()
 
 st.sidebar.markdown("---")
-st.sidebar.markdown("### ⚙️ Column Selection")
+st.sidebar.markdown("### ⚙️ 컬럼 선택")
 columns = list(raw_df.columns)
 
 # Auto-detect timestamp column
 date_cols = [col for col in columns if "time" in col.lower() or "date" in col.lower()]
 default_time_idx = columns.index(date_cols[0]) if date_cols else 0
-time_col = st.sidebar.selectbox("Timestamp Column", options=columns, index=default_time_idx)
+time_col = st.sidebar.selectbox("타임스탬프 컬럼", options=columns, index=default_time_idx)
 
 # Auto-detect numeric columns
 num_cols = list(raw_df.select_dtypes(include=[np.number]).columns)
@@ -274,21 +279,21 @@ if default_gt in num_cols:
     num_cols.remove(default_gt)
 
 target_cols = st.sidebar.multiselect(
-    "Target Features (for Anomaly Detection)",
+    "대상 피처 (이상탐지용)",
     options=num_cols,
     default=num_cols[:min(3, len(num_cols))]
 )
 
-has_gt = st.sidebar.checkbox("Has Ground Truth Labels?", value=(default_gt is not None))
+has_gt = st.sidebar.checkbox("실제 이상(Ground Truth) 레이블이 있습니까?", value=(default_gt is not None))
 if has_gt:
     gt_options = [col for col in columns if col != time_col]
     if not gt_options:
-        st.sidebar.warning("No columns available for Ground Truth.")
+        st.sidebar.warning("실제 이상(Ground Truth)으로 설정할 컬럼이 없습니다.")
         gt_col = None
     else:
         default_idx = gt_options.index(default_gt) if (default_gt in gt_options) else 0
         gt_col = st.sidebar.selectbox(
-            "Ground Truth Column",
+            "실제 이상(Ground Truth) 컬럼",
             options=gt_options,
             index=default_idx
         )
@@ -296,77 +301,130 @@ else:
     gt_col = None
 
 st.sidebar.markdown("---")
-st.sidebar.markdown("### 🧹 Data Preprocessing")
-missing_impute = st.sidebar.selectbox(
-    "Missing Value Imputation",
-    options=["Linear Interpolation", "Forward Fill", "Backward Fill", "No Imputation (Drop NA)"]
+st.sidebar.markdown("### 🧹 데이터 전처리")
+
+missing_impute_map = {
+    "선형 보간 (Linear Interpolation)": "Linear Interpolation",
+    "직전 값으로 대체 (Forward Fill)": "Forward Fill",
+    "직후 값으로 대체 (Backward Fill)": "Backward Fill",
+    "대체 없음 (결측치 제거)": "No Imputation (Drop NA)"
+}
+missing_impute_ui = st.sidebar.selectbox(
+    "결측치 대체 방법",
+    options=list(missing_impute_map.keys())
 )
-scaling_method = st.sidebar.selectbox(
-    "Feature Scaling",
-    options=["StandardScaler (z-score)", "MinMaxScaler (0-1)", "None"]
+missing_impute = missing_impute_map[missing_impute_ui]
+
+scaling_method_map = {
+    "StandardScaler (Z-점수)": "StandardScaler (z-score)",
+    "MinMaxScaler (0~1)": "MinMaxScaler (0-1)",
+    "적용 안 함": "None"
+}
+scaling_method_ui = st.sidebar.selectbox(
+    "피처 스케일링",
+    options=list(scaling_method_map.keys())
 )
-denoising_method = st.sidebar.selectbox(
-    "Denoising/Smoothing Method",
-    options=["None", "Simple Moving Average", "Differencing (t - (t-1))"]
+scaling_method = scaling_method_map[scaling_method_ui]
+
+denoising_method_map = {
+    "적용 안 함": "None",
+    "단순 이동 평균 (Simple Moving Average)": "Simple Moving Average",
+    "차분 (Differencing, t - (t-1))": "Differencing (t - (t-1))"
+}
+denoising_method_ui = st.sidebar.selectbox(
+    "노이즈 제거 및 평활화 방법",
+    options=list(denoising_method_map.keys())
 )
+denoising_method = denoising_method_map[denoising_method_ui]
+
 if denoising_method == "Simple Moving Average":
-    ma_window = st.sidebar.slider("Moving Average Window Size", min_value=3, max_value=31, value=5, step=2)
+    ma_window = st.sidebar.slider("이동 평균 윈도우 크기", min_value=3, max_value=31, value=5, step=2)
 else:
     ma_window = 1
 
 st.sidebar.markdown("---")
-st.sidebar.markdown("### 🧠 Model Selection")
-algo_type = st.sidebar.selectbox(
-    "Anomaly Model Type",
-    options=["Unsupervised Feature-Space", "Time-Series Forecasting Residuals"]
+st.sidebar.markdown("### 🧠 이상탐지 모델 선택")
+
+algo_type_map = {
+    "비지도 학습 기반 (피처 공간)": "Unsupervised Feature-Space",
+    "시계열 예측 잔차 기반": "Time-Series Forecasting Residuals"
+}
+algo_type_ui = st.sidebar.selectbox(
+    "이상탐지 모델 유형",
+    options=list(algo_type_map.keys())
 )
+algo_type = algo_type_map[algo_type_ui]
 
 # Initialize parameter configs
 model_params = {}
 
 if algo_type == "Unsupervised Feature-Space":
-    model_name = st.sidebar.selectbox(
-        "Select Model",
-        options=["Isolation Forest", "Mahalanobis Distance", "PCA Reconstruction Error", "Local Outlier Factor (LOF)"]
+    model_name_map = {
+        "아이솔레이션 포레스트 (Isolation Forest)": "Isolation Forest",
+        "마할라노비스 거리 (Mahalanobis Distance)": "Mahalanobis Distance",
+        "PCA 재구성 오차 (PCA Reconstruction Error)": "PCA Reconstruction Error",
+        "LOF (Local Outlier Factor)": "Local Outlier Factor (LOF)"
+    }
+    model_name_ui = st.sidebar.selectbox(
+        "모델 선택",
+        options=list(model_name_map.keys())
     )
-    contamination = st.sidebar.slider("Contamination Rate (%)", min_value=0.1, max_value=20.0, value=2.0, step=0.1) / 100.0
+    model_name = model_name_map[model_name_ui]
+    
+    contamination = st.sidebar.slider("이상치 비율 설정 (%)", min_value=0.1, max_value=20.0, value=2.0, step=0.1) / 100.0
     model_params["contamination"] = contamination
     
     if model_name == "Isolation Forest":
-        n_estimators = st.sidebar.slider("Number of Trees", min_value=50, max_value=300, value=100, step=50)
+        n_estimators = st.sidebar.slider("트리 개수", min_value=50, max_value=300, value=100, step=50)
         model_params["n_estimators"] = n_estimators
     elif model_name == "PCA Reconstruction Error":
-        pca_components = st.sidebar.slider("Number of Principal Components", min_value=1, max_value=max(1, len(target_cols)), value=min(2, len(target_cols)))
+        pca_components = st.sidebar.slider("주성분 개수", min_value=1, max_value=max(1, len(target_cols)), value=min(2, len(target_cols)))
         model_params["pca_components"] = pca_components
     elif model_name == "Local Outlier Factor (LOF)":
-        n_neighbors = st.sidebar.slider("Number of Neighbors", min_value=5, max_value=50, value=20)
+        n_neighbors = st.sidebar.slider("이웃 개수", min_value=5, max_value=50, value=20)
         model_params["n_neighbors"] = n_neighbors
 else:
-    model_name = st.sidebar.selectbox(
-        "Select Model",
-        options=["Rolling Hampel Filter", "STL Decomposition Residuals", "Forecasting Model Residuals"]
+    model_name_map = {
+        "롤링 햄펠 필터 (Rolling Hampel Filter)": "Rolling Hampel Filter",
+        "STL 분해 잔차 (STL Decomposition)": "STL Decomposition Residuals",
+        "예측 모델 잔차 (Forecasting Model Residuals)": "Forecasting Model Residuals"
+    }
+    model_name_ui = st.sidebar.selectbox(
+        "모델 선택",
+        options=list(model_name_map.keys())
     )
+    model_name = model_name_map[model_name_ui]
     
     if model_name == "Rolling Hampel Filter":
-        hampel_window = st.sidebar.slider("Hampel Window Size", min_value=5, max_value=51, value=15, step=2)
-        hampel_sigmas = st.sidebar.slider("Hampel Sigma Threshold", min_value=1.5, max_value=5.0, value=3.0, step=0.1)
+        hampel_window = st.sidebar.slider("햄펠 윈도우 크기", min_value=5, max_value=51, value=15, step=2)
+        hampel_sigmas = st.sidebar.slider("햄펠 임계값 (Sigma)", min_value=1.5, max_value=5.0, value=3.0, step=0.1)
         model_params["hampel_window"] = hampel_window
         model_params["hampel_sigmas"] = hampel_sigmas
     elif model_name == "STL Decomposition Residuals":
-        stl_period = st.sidebar.slider("Seasonal Period", min_value=4, max_value=168, value=24, step=1)
-        stl_sigma = st.sidebar.slider("Residual Sigma Threshold", min_value=1.5, max_value=5.0, value=3.0, step=0.1)
+        stl_period = st.sidebar.slider("계절성 주기 (Seasonal Period)", min_value=4, max_value=168, value=24, step=1)
+        stl_sigma = st.sidebar.slider("잔차 임계값 (Sigma)", min_value=1.5, max_value=5.0, value=3.0, step=0.1)
         model_params["stl_period"] = stl_period
         model_params["stl_sigma"] = stl_sigma
     elif model_name == "Forecasting Model Residuals":
-        forecaster_choice = st.sidebar.selectbox("Base Forecaster", ["Linear Ridge (Lags)", "Exponential Smoothing", "Rolling Mean Predictor"])
-        fc_sigma = st.sidebar.slider("Residual Sigma Threshold", min_value=1.5, max_value=5.0, value=3.0, step=0.1)
-        train_ratio = st.sidebar.slider("Train Split Ratio", min_value=0.5, max_value=0.9, value=0.7, step=0.05)
+        forecaster_choice_map = {
+            "선형 릿지 회귀 (Ridge with Lags)": "Linear Ridge (Lags)",
+            "지수 평활법 (Exponential Smoothing)": "Exponential Smoothing",
+            "롤링 평균 예측기 (Rolling Mean Predictor)": "Rolling Mean Predictor"
+        }
+        forecaster_choice_ui = st.sidebar.selectbox(
+            "기본 예측 모델",
+            options=list(forecaster_choice_map.keys())
+        )
+        forecaster_choice = forecaster_choice_map[forecaster_choice_ui]
+        
+        fc_sigma = st.sidebar.slider("잔차 임계값 (Sigma)", min_value=1.5, max_value=5.0, value=3.0, step=0.1)
+        train_ratio = st.sidebar.slider("학습 데이터 분할 비율", min_value=0.5, max_value=0.9, value=0.7, step=0.05)
         model_params["forecaster_choice"] = forecaster_choice
         model_params["fc_sigma"] = fc_sigma
         model_params["train_ratio"] = train_ratio
 
 if not target_cols:
-    st.error("Please select at least one Target Feature in the sidebar to perform anomaly detection.")
+    st.error("이상탐지를 수행하려면 사이드바에서 최소 하나 이상의 대상 피처를 선택해 주세요.")
     st.stop()
 
 # -------------------------------------------------------------
@@ -413,31 +471,31 @@ df_scaled[target_cols] = X_scaled
 # 4. TAB CONTROLS
 # -------------------------------------------------------------
 tab1, tab2, tab3, tab4 = st.tabs([
-    "📂 Data Overview & Preprocessing",
-    "📈 Exploratory Time-Series Analysis (EDA)",
-    "🔍 Anomaly Detection Results",
-    "📊 Evaluation Dashboard"
+    "📂 데이터 개요 및 전처리",
+    "📈 탐색적 시계열 분석 (EDA)",
+    "🔍 이상탐지 결과 분석",
+    "📊 모델 평가 및 진단 대시보드"
 ])
 
 # -------------------------------------------------------------
 # TAB 1: DATA OVERVIEW & PREPROCESSING
 # -------------------------------------------------------------
 with tab1:
-    st.markdown("### 📊 Dataset Properties & Preprocessing Inspection")
+    st.markdown("### 📊 데이터셋 속성 및 전처리 확인")
     
     col1, col2, col3 = st.columns(3)
     with col1:
         st.markdown(f"""
         <div class="metric-card">
-            <div class="metric-title">Total Records</div>
+            <div class="metric-title">총 레코드 수</div>
             <div class="metric-value">{len(df)}</div>
-            <div class="metric-sub">Time spans from {df[time_col].min().strftime('%Y-%m-%d')} to {df[time_col].max().strftime('%Y-%m-%d')}</div>
+            <div class="metric-sub">{df[time_col].min().strftime('%Y-%m-%d')}부터 {df[time_col].max().strftime('%Y-%m-%d')}까지의 기간 데이터</div>
         </div>
         """, unsafe_allow_html=True)
     with col2:
         st.markdown(f"""
         <div class="metric-card">
-            <div class="metric-title">Selected Target Features</div>
+            <div class="metric-title">선택된 대상 피처</div>
             <div class="metric-value">{len(target_cols)}</div>
             <div class="metric-sub">{', '.join(target_cols)}</div>
         </div>
@@ -446,27 +504,27 @@ with tab1:
         na_count = raw_df[target_cols].isna().sum().sum()
         st.markdown(f"""
         <div class="metric-card">
-            <div class="metric-title">Missing Values (Raw Targets)</div>
+            <div class="metric-title">결측치 수 (원본 데이터)</div>
             <div class="metric-value">{na_count}</div>
-            <div class="metric-sub">Handling: {missing_impute}</div>
+            <div class="metric-sub">처리 방법: {missing_impute_ui}</div>
         </div>
         """, unsafe_allow_html=True)
 
-    st.markdown("#### Sample Dataset View (First 5 Rows)")
+    st.markdown("#### 데이터셋 샘플 (상위 5행)")
     st.dataframe(df.head(), use_container_width=True)
     
-    st.markdown("#### Raw vs. Preprocessed Time Series Comparison")
-    st.caption("Inspect the effect of selected imputation, smoothing, and scaling configurations.")
+    st.markdown("#### 원본 데이터 vs. 전처리 데이터 시각화 비교")
+    st.caption("사이드바에서 설정한 결측치 대체, 평활화, 스케일링 설정에 따른 데이터 변환 효과를 비교해 보세요.")
     
-    feature_to_plot = st.selectbox("Select Feature to Visualize", options=target_cols)
+    feature_to_plot = st.selectbox("시각화할 피처 선택", options=target_cols)
     
-    fig_prep = make_subplots(rows=2, cols=1, shared_xaxes=True, subplot_titles=["Raw Series", "Preprocessed Series"])
+    fig_prep = make_subplots(rows=2, cols=1, shared_xaxes=True, subplot_titles=["원본 시계열", "전처리된 시계열"])
     fig_prep.add_trace(
-        go.Scatter(x=df_original[time_col], y=df_original[feature_to_plot], name="Raw Data", line=dict(color="#94a3b8")),
+        go.Scatter(x=df_original[time_col], y=df_original[feature_to_plot], name="원본 데이터", line=dict(color="#94a3b8")),
         row=1, col=1
     )
     fig_prep.add_trace(
-        go.Scatter(x=df[time_col], y=df_scaled[feature_to_plot], name="Preprocessed", line=dict(color="#38bdf8")),
+        go.Scatter(x=df[time_col], y=df_scaled[feature_to_plot], name="전처리 데이터", line=dict(color="#38bdf8")),
         row=2, col=1
     )
     fig_prep.update_layout(
@@ -483,13 +541,13 @@ with tab1:
 # TAB 2: EXPLORATORY TIME-SERIES ANALYSIS
 # -------------------------------------------------------------
 with tab2:
-    st.markdown("### 📈 Time-Series Statistical & Structural Analysis")
+    st.markdown("### 📈 시계열 통계 및 구조적 분석")
     
-    st.markdown("#### 1. Stationarity Assessment: Augmented Dickey-Fuller (ADF) Test")
+    st.markdown("#### 1. 정상성(Stationarity) 검정: ADF (Augmented Dickey-Fuller) 테스트")
     st.markdown("""
-    The ADF test checks for the presence of a unit root (non-stationarity). 
-    *   **Null Hypothesis ($H_0$)**: The series has a unit root (is non-stationary).
-    *   **Alternative Hypothesis ($H_1$)**: The series is stationary ($p\\text{-value} < 0.05$).
+    ADF 검정은 시계열 데이터에 단위근이 존재하는지(즉, 비정상성 시계열인지) 확인하는 통계적 검정입니다.
+    *   **귀무가설 ($H_0$)**: 시계열이 단위근을 가집니다 (비정상성 시계열).
+    *   **대립가설 ($H_1$)**: 시계열이 정상성을 띱니다 ($p\\text{-value} < 0.05$).
     """)
     
     adf_results = []
@@ -497,11 +555,11 @@ with tab2:
         series_clean = df[col].dropna()
         if series_clean.std() == 0:
             adf_results.append({
-                "Feature": col,
-                "ADF Statistic": np.nan,
+                "피처": col,
+                "ADF 통계량": np.nan,
                 "p-value": np.nan,
-                "Lags Used": 0,
-                "Stationary?": "Constant Value"
+                "사용된 시차 (Lags)": 0,
+                "정상성 만족 여부": "상수값 (변동 없음)"
             })
             continue
             
@@ -510,36 +568,36 @@ with tab2:
             adf_stat = res[0]
             p_val = res[1]
             lags = res[2]
-            stationary = "✅ Yes (p < 0.05)" if p_val < 0.05 else "❌ No (Non-Stationary)"
+            stationary = "✅ 정상 (p < 0.05)" if p_val < 0.05 else "❌ 비정상 (정상성 미만족)"
             adf_results.append({
-                "Feature": col,
-                "ADF Statistic": f"{adf_stat:.4f}",
+                "피처": col,
+                "ADF 통계량": f"{adf_stat:.4f}",
                 "p-value": f"{p_val:.4f}" if p_val >= 0.0001 else "< 0.0001",
-                "Lags Used": lags,
-                "Stationary?": stationary
+                "사용된 시차 (Lags)": lags,
+                "정상성 만족 여부": stationary
             })
         except Exception as e:
             adf_results.append({
-                "Feature": col,
-                "ADF Statistic": "Fail",
-                "p-value": "Fail",
-                "Lags Used": 0,
-                "Stationary?": f"Error: {e}"
+                "피처": col,
+                "ADF 통계량": "실패",
+                "p-value": "실패",
+                "사용된 시차 (Lags)": 0,
+                "정상성 만족 여부": f"오류: {e}"
             })
             
     st.table(pd.DataFrame(adf_results))
     
-    st.markdown("#### 2. Autocorrelation Analysis (ACF / PACF)")
-    st.caption("Identify temporal dependencies, lags, and seasonalities in the target series.")
+    st.markdown("#### 2. 자기상관 및 부분자기상관 분석 (ACF / PACF)")
+    st.caption("대상 시계열의 시간적 의존성, 시차(Lags) 및 계절성 패턴을 식별합니다.")
     
-    acf_feature = st.selectbox("Select Feature for ACF/PACF", options=target_cols, key="acf_feat")
-    n_lags = st.slider("Number of Lags", min_value=10, max_value=100, value=40, step=5)
+    acf_feature = st.selectbox("ACF/PACF 분석 대상 피처 선택", options=target_cols, key="acf_feat")
+    n_lags = st.slider("시차(Lags) 개수", min_value=10, max_value=100, value=40, step=5)
     
     series_acf = df[acf_feature].values
     lag_acf = acf(series_acf, nlags=n_lags, fft=True)
     lag_pacf = pacf(series_acf, nlags=n_lags, method="yw")
     
-    fig_corr = make_subplots(rows=1, cols=2, subplot_titles=["Autocorrelation (ACF)", "Partial Autocorrelation (PACF)"])
+    fig_corr = make_subplots(rows=1, cols=2, subplot_titles=["자기상관함수 (ACF)", "부분자기상관함수 (PACF)"])
     fig_corr.add_trace(
         go.Bar(x=list(range(n_lags + 1)), y=lag_acf, name="ACF", marker_color="#818cf8"),
         row=1, col=1
@@ -566,7 +624,7 @@ with tab2:
     )
     st.plotly_chart(fig_corr, use_container_width=True)
 
-    st.markdown("#### 3. Multivariate Feature Correlation Matrix")
+    st.markdown("#### 3. 다변량 피처 간 상관관계 분석")
     if len(target_cols) > 1:
         corr_matrix = df[target_cols].corr()
         fig_corr_mat = px.imshow(
@@ -574,7 +632,7 @@ with tab2:
             text_auto=".2f",
             color_continuous_scale="RdBu_r",
             zmin=-1, zmax=1,
-            title="Pearson Correlation Heatmap"
+            title="피어슨 상관계수 히트맵 (Pearson Correlation)"
         )
         fig_corr_mat.update_layout(
             template="plotly_dark",
@@ -584,7 +642,7 @@ with tab2:
         )
         st.plotly_chart(fig_corr_mat, use_container_width=True)
     else:
-        st.info("Correlation matrix requires at least two selected features.")
+        st.info("상관관계 행렬을 시각화하려면 최소 2개 이상의 대상 피처를 선택해야 합니다.")
 
 # -------------------------------------------------------------
 # 5. CORE PIPELINE - ANOMALY DETECTION ENGINE (CACHED)
@@ -791,8 +849,21 @@ df["Is_Anomaly_Detected"] = anomalies_flag
 # -------------------------------------------------------------
 # TAB 3: ANOMALY DETECTION RESULTS
 # -------------------------------------------------------------
+# Mapped names for display
+model_name_kr = model_name
+for k, v in model_name_map.items():
+    if v == model_name:
+        model_name_kr = k
+        break
+
+algo_type_kr = algo_type
+for k, v in algo_type_map.items():
+    if v == algo_type:
+        algo_type_kr = k
+        break
+
 with tab3:
-    st.markdown("### 🔍 Model Execution & Detected Anomalies Timeline")
+    st.markdown("### 🔍 모델 실행 및 탐지된 이상치 타임라인")
     
     num_anomalies = df["Is_Anomaly_Detected"].sum()
     pct_anomalies = (num_anomalies / len(df)) * 100
@@ -801,38 +872,38 @@ with tab3:
     with col_res1:
         st.markdown(f"""
         <div class="metric-card">
-            <div class="metric-title">Anomalies Detected</div>
-            <div class="metric-value" style="color: #ef4444;">{num_anomalies}</div>
-            <div class="metric-sub">Out of {len(df)} total observations</div>
+            <div class="metric-title">탐지된 이상치</div>
+            <div class="metric-value" style="color: #ef4444;">{num_anomalies} 건</div>
+            <div class="metric-sub">총 {len(df)}개 관측치 중</div>
         </div>
         """, unsafe_allow_html=True)
     with col_res2:
         st.markdown(f"""
         <div class="metric-card">
-            <div class="metric-title">Anomaly Rate</div>
+            <div class="metric-title">이상 비율</div>
             <div class="metric-value">{pct_anomalies:.2f}%</div>
-            <div class="metric-sub">Contamination/Threshold configuration</div>
+            <div class="metric-sub">설정된 이상치 비율/임계값 기준</div>
         </div>
         """, unsafe_allow_html=True)
     with col_res3:
         st.markdown(f"""
         <div class="metric-card">
-            <div class="metric-title">Active Model</div>
-            <div class="metric-value" style="color: #a855f7;">{model_name}</div>
-            <div class="metric-sub">Type: {algo_type}</div>
+            <div class="metric-title">활성화된 모델</div>
+            <div class="metric-value" style="color: #a855f7;">{model_name_kr}</div>
+            <div class="metric-sub">유형: {algo_type_kr}</div>
         </div>
         """, unsafe_allow_html=True)
 
     # Anomaly Visualization Timeline
-    st.markdown("#### Time Series Anomaly Timeline Overlay")
-    selected_vis_col = st.selectbox("Feature to View in Timeline", options=target_cols, key="vis_timeline")
+    st.markdown("#### 시계열 이상탐지 타임라인 오버레이")
+    selected_vis_col = st.selectbox("타임라인에서 볼 피처 선택", options=target_cols, key="vis_timeline")
     
     fig_timeline = go.Figure()
     fig_timeline.add_trace(go.Scatter(
         x=df[time_col],
         y=df[selected_vis_col],
         mode="lines",
-        name="Series Line",
+        name="시계열 데이터",
         line=dict(color="#6366f1", width=1.5)
     ))
     
@@ -841,13 +912,13 @@ with tab3:
         x=df_anom[time_col],
         y=df_anom[selected_vis_col],
         mode="markers",
-        name="Detected Anomaly",
+        name="탐지된 이상치",
         marker=dict(color="#ef4444", size=8, symbol="circle", line=dict(color="#ffffff", width=1))
     ))
     
     if algo_type == "Time-Series Forecasting Residuals" and model_name == "Forecasting Model Residuals":
         split_date = df.iloc[info_dict["split_idx"]][time_col]
-        fig_timeline.add_vline(x=split_date, line_dash="dash", line_color="#e2e8f0", annotation_text="Train/Test Split", annotation_position="top left")
+        fig_timeline.add_vline(x=split_date, line_dash="dash", line_color="#e2e8f0", annotation_text="학습/테스트 데이터 분할선", annotation_position="top left")
         
     fig_timeline.update_layout(
         height=450,
@@ -862,12 +933,12 @@ with tab3:
     st.plotly_chart(fig_timeline, use_container_width=True)
 
     # Local Explanations - Feature Contributions
-    st.markdown("#### 🔍 Feature Contribution (Local Interpretability)")
-    st.caption("Understand which variables contributed the most to the anomaly status for any given point in time.")
+    st.markdown("#### 🔍 피처 기여도 (설명 가능한 AI / 로컬 분석)")
+    st.caption("특정 시점에 탐지된 이상치에 대해 어떤 변수(피처)가 가장 크게 기여했는지 개별 기여도를 분석합니다.")
     
     if num_anomalies > 0:
         anom_dates = df_anom[time_col].dt.strftime('%Y-%m-%d %H:%M:%S').tolist()
-        selected_anom_date_str = st.selectbox("Select an Anomaly Timestamp to Inspect", options=anom_dates)
+        selected_anom_date_str = st.selectbox("상세 분석할 이상치 발생 시각 선택", options=anom_dates)
         selected_idx = df[df[time_col].dt.strftime('%Y-%m-%d %H:%M:%S') == selected_anom_date_str].index[0]
         
         # Pull cached local contribution vector for index
@@ -876,32 +947,32 @@ with tab3:
         contributions = (deviations / total_dev) * 100
         
         contrib_df = pd.DataFrame({
-            "Feature": target_cols,
-            "Raw Value": df.loc[selected_idx, target_cols].values,
-            "Historical Median": df_original[target_cols].median().values,
-            "Standardized Deviation (Score)": deviations,
-            "Contribution Percentage (%)": contributions
-        }).sort_values(by="Contribution Percentage (%)", ascending=False)
+            "피처 (Feature)": target_cols,
+            "실제값 (Raw Value)": df.loc[selected_idx, target_cols].values,
+            "역사적 중앙값 (Median)": df_original[target_cols].median().values,
+            "표준화된 편차 (Score)": deviations,
+            "기여 비율 (%)": contributions
+        }).sort_values(by="기여 비율 (%)", ascending=False)
         
         col_contrib1, col_contrib2 = st.columns([1, 1])
         with col_contrib1:
-            st.markdown(f"**Anomaly Profile at {selected_anom_date_str}**")
+            st.markdown(f"**{selected_anom_date_str} 시점의 이상치 분석 프로필**")
             st.dataframe(contrib_df.style.format({
-                "Raw Value": "{:.4f}",
-                "Historical Median": "{:.4f}",
-                "Standardized Deviation (Score)": "{:.4f}",
-                "Contribution Percentage (%)": "{:.1f}%"
+                "실제값 (Raw Value)": "{:.4f}",
+                "역사적 중앙값 (Median)": "{:.4f}",
+                "표준화된 편차 (Score)": "{:.4f}",
+                "기여 비율 (%)": "{:.1f}%"
             }), use_container_width=True)
             
         with col_contrib2:
             fig_contrib = px.bar(
                 contrib_df,
-                x="Contribution Percentage (%)",
-                y="Feature",
+                x="기여 비율 (%)",
+                y="피처 (Feature)",
                 orientation="h",
-                color="Contribution Percentage (%)",
+                color="기여 비율 (%)",
                 color_continuous_scale="Reds",
-                title="Variable Contribution to Anomaly Score"
+                title="이상치 점수에 대한 피처별 기여도"
             )
             fig_contrib.update_layout(
                 template="plotly_dark",
@@ -912,14 +983,14 @@ with tab3:
             )
             st.plotly_chart(fig_contrib, use_container_width=True)
     else:
-        st.info("No anomalies detected. Adjust your threshold or contamination settings in the sidebar.")
+        st.info("탐지된 이상치가 없습니다. 사이드바에서 임계값이나 이상치 비율 설정을 조정해 주세요.")
         
-    st.markdown("#### Download Results")
+    st.markdown("#### 탐지 결과 다운로드")
     csv_buffer = io.StringIO()
     df.to_csv(csv_buffer, index=False)
     csv_bytes = csv_buffer.getvalue().encode('utf-8')
     st.download_button(
-        label="📥 Download Detection Results (CSV)",
+        label="📥 이상탐지 결과 다운로드 (CSV)",
         data=csv_bytes,
         file_name=f"anomaly_detection_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
         mime="text/csv"
@@ -929,39 +1000,39 @@ with tab3:
 # TAB 4: EVALUATION DASHBOARD
 # -------------------------------------------------------------
 with tab4:
-    st.markdown("### 📊 Comprehensive Evaluation & Decision Support Dashboard")
+    st.markdown("### 📊 종합 모델 평가 및 진단 대시보드")
     
     # Mathematical explanations of chosen model
-    st.markdown("#### 📐 Mathematical Foundations")
+    st.markdown("#### 📐 적용된 모델의 수학적 원리")
     
     if model_name == "Mahalanobis Distance":
         st.markdown('<div class="formula-box">', unsafe_allow_html=True)
-        st.write(r"**Mahalanobis Distance ($D_M$):** Accounts for correlations between features.")
+        st.write(r"**마할라노비스 거리 ($D_M$):** 피처 간의 상관관계를 반영하여 이상을 탐지합니다.")
         st.latex(r"D_M(x) = \sqrt{(x - \mu)^T \Sigma^{-1} (x - \mu)}")
-        st.write(r"Where $\mu$ is the multivariate mean vector and $\Sigma$ is the covariance matrix. Point $x$ is flagged as an anomaly if its distance exceeds the contamination percentile threshold.")
+        st.write(r"여기서 $\mu$는 다변량 평균 벡터이고, $\Sigma$는 공분산 행렬입니다. 마할라노비스 거리가 설정된 이상치 비율의 분위수 임계값을 초과하는 시점이 이상치로 판단됩니다.")
         st.markdown('</div>', unsafe_allow_html=True)
     elif model_name == "PCA Reconstruction Error":
         st.markdown('<div class="formula-box">', unsafe_allow_html=True)
-        st.write(r"**PCA Reconstruction Error:** Measures distance of the sample from the principal subspace.")
+        st.write(r"**PCA 재구성 오차 (Reconstruction Error):** 주성분 공간(Subspace)으로부터 샘플이 떨어진 거리를 측정합니다.")
         st.latex(r"e(x) = \|x - P_k P_k^T x\|^2")
-        st.write(r"Where $P_k$ is the projection matrix containing the first $k$ principal component eigenvectors. High reconstruction error indicates that the observation does not match the historical correlation structure.")
+        st.write(r"여기서 $P_k$는 상위 $k$개의 주성분 고유벡터를 포함하는 투영 행렬입니다. 재구성 오차가 높다는 것은 해당 시점의 관측치가 과거의 상관관계 구조를 따르지 않음을 나타냅니다.")
         st.markdown('</div>', unsafe_allow_html=True)
     elif model_name == "Isolation Forest":
         st.markdown('<div class="formula-box">', unsafe_allow_html=True)
-        st.write(r"**Isolation Forest Path Length Score:** Measures average tree depth to isolate a point.")
+        st.write(r"**아이솔레이션 포레스트 경로 길이 점수:** 특정 데이터를 고립시키기 위해 필요한 평균 트리 깊이를 기준으로 이상 점수를 계산합니다.")
         st.latex(r"s(x, n) = 2^{-\frac{E(h(x))}{c(n)}}")
-        st.write(r"Where $E(h(x))$ is the average path length of point $x$ over a forest of isolation trees, and $c(n)$ is the average path length of an unsuccessful search in a Binary Search Tree of $n$ nodes. $s \to 1$ indicates anomalies.")
+        st.write(r"여기서 $E(h(x))$는 생성된 의사결정 나무(Tree)들에서 데이터 $x$를 고립시키기 위한 평균 경로 길이이며, $c(n)$은 $n$개 노드로 구성된 이진 탐색 트리에서 탐색 실패 시의 평균 경로 길이입니다. 점수 $s$가 1에 가까울수록 이상치일 확률이 높습니다.")
         st.markdown('</div>', unsafe_allow_html=True)
     elif model_name == "Rolling Hampel Filter":
         st.markdown('<div class="formula-box">', unsafe_allow_html=True)
-        st.write(r"**Rolling Hampel Filter (Median Absolute Deviation):** Robust statistical outlier detection.")
+        st.write(r"**롤링 햄펠 필터 (Median Absolute Deviation):** 중앙값(Median)과 MAD를 이용한 로버스트(강건한) 통계적 아웃라이어 탐지 기법입니다.")
         st.latex(r"|x_t - m_t| > 3 \times 1.4826 \times \text{MAD}_t")
-        st.write(r"Where $m_t$ is the rolling window median and $\text{MAD}_t = \text{median}(|x_{t-k..t+k} - m_t|)$ is the rolling median absolute deviation. The constant $1.4826$ scales the MAD to be a consistent estimator of the standard deviation.")
+        st.write(r"여기서 $m_t$는 롤링 윈도우 중앙값이며, $\text{MAD}_t = \text{median}(|x_{t-k..t+k} - m_t|)$는 롤링 중앙값 절대 편차입니다. 상수 1.4826은 정규분포에서 MAD가 표준편차의 일치추정량이 되도록 스케일을 조정해 주는 계수입니다.")
         st.markdown('</div>', unsafe_allow_html=True)
 
     # 1. Unsupervised evaluation profiles
     st.markdown("---")
-    st.markdown("#### 1. Unsupervised Statistical Evaluation")
+    st.markdown("#### 1. 비지도 학습 통계 평가")
     
     col_eval1, col_eval2 = st.columns(2)
     with col_eval1:
@@ -972,17 +1043,17 @@ with tab4:
             color="Is_Anomaly_Detected",
             color_discrete_map={True: "#ef4444", False: "#6366f1"},
             nbins=50,
-            title="Distribution of Anomaly Scores"
+            title="이상치 점수 분포"
         )
         if "Threshold" in info_dict:
-            fig_dist.add_vline(x=info_dict["Threshold"], line_dash="dash", line_color="#ef4444", annotation_text="Cutoff Threshold", annotation_position="top right")
+            fig_dist.add_vline(x=info_dict["Threshold"], line_dash="dash", line_color="#ef4444", annotation_text="판단 임계값", annotation_position="top right")
             
         fig_dist.update_layout(
             template="plotly_dark",
             margin=dict(l=20, r=20, t=40, b=20),
             plot_bgcolor="rgba(0,0,0,0)",
             paper_bgcolor="rgba(0,0,0,0)",
-            legend_title="Anomaly?"
+            legend_title="이상 여부"
         )
         st.plotly_chart(fig_dist, use_container_width=True)
         
@@ -993,26 +1064,30 @@ with tab4:
                 sil_score = silhouette_score(X_scaled, df["Is_Anomaly_Detected"])
                 st.markdown(f"""
                 <div class="metric-card" style="margin-top: 20px;">
-                    <div class="metric-title">Silhouette Separation Score</div>
+                    <div class="metric-title">실루엣 분리도 점수 (Silhouette Score)</div>
                     <div class="metric-value" style="color: #10b981;">{sil_score:.4f}</div>
-                    <div class="metric-sub">Measures clustering separation. Range: [-1, 1]. Positive values indicate normal and anomaly groups are well-separated in feature space.</div>
+                    <div class="metric-sub">정상 그룹과 이상 그룹이 피처 공간에서 얼마나 잘 분리되어 있는지 측정합니다. 범위는 [-1, 1]이며, 양수 값이 크고 1에 가까울수록 두 그룹이 명확히 구분된다는 것을 의미합니다.</div>
                 </div>
                 """, unsafe_allow_html=True)
             except:
-                st.warning("Could not calculate Silhouette score due to numerical dimensions.")
+                st.warning("데이터 차원 문제로 인해 실루엣 점수를 계산할 수 없습니다.")
         else:
-            st.info("Silhouette score requires at least 2 anomaly points and 2 normal points.")
+            st.info("실루엣 점수를 계산하려면 최소 2개 이상의 이상치와 2개 이상의 정상 데이터가 존재해야 합니다.")
 
         # Boxplots comparing distributions
-        st.markdown("**Feature Distributions: Normal vs. Anomaly Periods**")
-        box_feature = st.selectbox("Select Feature for Distribution Comparison", options=target_cols, key="box_feat")
+        st.markdown("**정상 vs 이상 시점의 피처별 분포 비교**")
+        box_feature = st.selectbox("분포를 비교할 피처 선택", options=target_cols, key="box_feat")
+        
+        df_box = df.copy()
+        df_box["이상 여부"] = df_box["Is_Anomaly_Detected"].map({True: "이상치 (Anomaly)", False: "정상 (Normal)"})
+        
         fig_box = px.box(
-            df,
-            x="Is_Anomaly_Detected",
+            df_box,
+            x="이상 여부",
             y=box_feature,
-            color="Is_Anomaly_Detected",
-            color_discrete_map={True: "#ef4444", False: "#6366f1"},
-            labels={"Is_Anomaly_Detected": "Is Anomaly?"}
+            color="이상 여부",
+            color_discrete_map={"이상치 (Anomaly)": "#ef4444", "정상 (Normal)": "#6366f1"},
+            labels={"이상 여부": "상태 구분"}
         )
         fig_box.update_layout(
             template="plotly_dark",
@@ -1026,7 +1101,7 @@ with tab4:
     # 2. Supervised Evaluation (Validation Metrics)
     if has_gt and gt_col in df.columns:
         st.markdown("---")
-        st.markdown("#### 2. Supervised Validation Metrics (Against Ground Truth)")
+        st.markdown("#### 2. 지도학습 기반 검증 지표 (실제 레이블 대비 평가)")
         
         y_true = df[gt_col].astype(int).values
         y_pred = df["Is_Anomaly_Detected"].astype(int).values
@@ -1040,39 +1115,39 @@ with tab4:
             auc = roc_auc_score(y_true, norm_scores)
         except Exception as e:
             precision = recall = f1 = auc = 0.0
-            st.warning(f"Failed to calculate validation metrics: {e}")
+            st.warning(f"검증 지표 계산 실패: {e}")
             
         col_sup1, col_sup2, col_sup3, col_sup4 = st.columns(4)
         with col_sup1:
             st.markdown(f"""
             <div class="metric-card">
-                <div class="metric-title">Precision</div>
+                <div class="metric-title">정밀도 (Precision)</div>
                 <div class="metric-value">{precision:.4f}</div>
-                <div class="metric-sub">Proportion of true positive detections among all flagged points.</div>
+                <div class="metric-sub">모델이 이상이라고 분류한 것 중 실제로 이상인 비율입니다.</div>
             </div>
             """, unsafe_allow_html=True)
         with col_sup2:
             st.markdown(f"""
             <div class="metric-card">
-                <div class="metric-title">Recall (Sensitivity)</div>
+                <div class="metric-title">재현율 (Recall / 민감도)</div>
                 <div class="metric-value">{recall:.4f}</div>
-                <div class="metric-sub">Proportion of actual anomalies successfully identified.</div>
+                <div class="metric-sub">실제 이상치 중 모델이 성공적으로 찾아낸 비율입니다.</div>
             </div>
             """, unsafe_allow_html=True)
         with col_sup3:
             st.markdown(f"""
             <div class="metric-card">
-                <div class="metric-title">F1-Score</div>
+                <div class="metric-title">F1-점수 (F1-Score)</div>
                 <div class="metric-value" style="color: #f59e0b;">{f1:.4f}</div>
-                <div class="metric-sub">Harmonic mean of precision and recall. Best balance.</div>
+                <div class="metric-sub">정밀도와 재현율의 조화평균으로, 불균형 데이터셋에서 가장 균형 잡힌 평가지표입니다.</div>
             </div>
             """, unsafe_allow_html=True)
         with col_sup4:
             st.markdown(f"""
             <div class="metric-card">
-                <div class="metric-title">ROC-AUC Score</div>
+                <div class="metric-title">ROC-AUC 점수</div>
                 <div class="metric-value" style="color: #10b981;">{auc:.4f}</div>
-                <div class="metric-sub">Area Under ROC Curve. Reflects the ranking performance of anomaly scores.</div>
+                <div class="metric-sub">ROC 곡선 아래의 면적입니다. 이상치 점수의 랭킹 및 분류 판별 성능을 종합적으로 나타냅니다.</div>
             </div>
             """, unsafe_allow_html=True)
             
@@ -1083,10 +1158,10 @@ with tab4:
             fig_cm = px.imshow(
                 cm,
                 text_auto=True,
-                x=["Predicted Normal", "Predicted Anomaly"],
-                y=["Actual Normal", "Actual Anomaly"],
+                x=["정상 예측 (Normal)", "이상 예측 (Anomaly)"],
+                y=["실제 정상 (Normal)", "실제 이상 (Anomaly)"],
                 color_continuous_scale="Blues",
-                title="Confusion Matrix"
+                title="혼동 행렬 (Confusion Matrix)"
             )
             fig_cm.update_layout(
                 template="plotly_dark",
@@ -1098,14 +1173,14 @@ with tab4:
             
         with col_curve2:
             # ROC & PR curves
-            curve_type = st.radio("Select Curve to View", ["ROC Curve", "Precision-Recall Curve"], horizontal=True)
-            if curve_type == "ROC Curve":
+            curve_type = st.radio("시각화할 곡선 선택", ["ROC 곡선 (ROC Curve)", "정밀도-재현율 곡선 (Precision-Recall Curve)"], horizontal=True)
+            if curve_type == "ROC 곡선 (ROC Curve)":
                 fpr, tpr, _ = roc_curve(y_true, norm_scores)
-                fig_curve = px.line(x=fpr, y=tpr, labels={"x": "False Positive Rate", "y": "True Positive Rate"}, title="Receiver Operating Characteristic (ROC) Curve")
+                fig_curve = px.line(x=fpr, y=tpr, labels={"x": "위양성률 (False Positive Rate)", "y": "진양성률 (True Positive Rate)"}, title="ROC 곡선 (Receiver Operating Characteristic)")
                 fig_curve.add_shape(type="line", line=dict(dash="dash", color="#64748b"), x0=0, x1=1, y0=0, y1=1)
             else:
                 prec, rec, _ = precision_recall_curve(y_true, norm_scores)
-                fig_curve = px.line(x=rec, y=prec, labels={"x": "Recall", "y": "Precision"}, title="Precision-Recall Curve")
+                fig_curve = px.line(x=rec, y=prec, labels={"x": "재현율 (Recall)", "y": "정밀도 (Precision)"}, title="정밀도-재현율 곡선 (Precision-Recall Curve)")
                 
             fig_curve.update_layout(
                 template="plotly_dark",
@@ -1118,22 +1193,22 @@ with tab4:
     # 3. Forecasting-based Metrics (from 수업내용.md)
     if algo_type == "Time-Series Forecasting Residuals" and model_name == "Forecasting Model Residuals":
         st.markdown("---")
-        st.markdown("#### 3. Forecasting Evaluation Metrics & Drift Diagnostics")
-        st.markdown("These metrics reflect the forecasting accuracy of the base model over the Test split, matching the statistics from `수업내용.md`.")
+        st.markdown("#### 3. 예측 기반 모델 평가지표 및 개념 드리프트 진단")
+        st.markdown("이 지표들은 학습/테스트 분할 중 테스트 데이터 세트에 대한 기본 시계열 예측 모델의 정확도를 나타내며, 수업내용.md에 제시된 통계와 일치합니다.")
         
         # Display Metrics Table
         fc_df = pd.DataFrame(info_dict["fc_metrics"]).T
         st.table(fc_df.style.format("{:.4f}"))
         
         # Tracking Signal (TS) Plot
-        st.markdown("##### 📈 Tracking Signal (TS) Over Time")
+        st.markdown("##### 📈 시간 흐름에 따른 트래킹 시그널 (Tracking Signal)")
         st.markdown("""
-        The Tracking Signal indicates whether the forecasting model is systematically biased (under-predicting or over-predicting).
+        트래킹 시그널(Tracking Signal)은 예측 모델이 지속적으로 한쪽 방향(과소 예측 또는 과대 예측)으로 편향되는지를 진단하는 지표입니다.
         $$TS_t = \\frac{\\sum_{i=1}^t e_i}{MAD_t}$$
-        If the Tracking Signal leaves the range of $[-4, 4]$, the model is considered biased or indicates structural drift in the time series.
+        트래킹 시그널이 $[-4, 4]$ 범위를 벗어나면 모델의 예측 편향이 심각하거나 시계열 데이터의 구조적 드리프트(Drift)가 발생했음을 의미합니다.
         """)
         
-        selected_ts_col = st.selectbox("Select Feature to View Tracking Signal", options=target_cols, key="ts_feat")
+        selected_ts_col = st.selectbox("트래킹 시그널을 확인할 피처 선택", options=target_cols, key="ts_feat")
         ts_values = info_dict["ts_series"][selected_ts_col]
         test_dates = df.iloc[info_dict["split_idx"]:][time_col]
         
@@ -1141,13 +1216,13 @@ with tab4:
         fig_ts.add_trace(go.Scatter(
             x=test_dates,
             y=ts_values,
-            name="Tracking Signal",
+            name="트래킹 시그널 (TS)",
             line=dict(color="#38bdf8", width=2)
         ))
         
         # Add bounds +/- 4
-        fig_ts.add_hline(y=4, line_dash="dash", line_color="#ef4444", line_width=1.5, annotation_text="Upper Bound (+4)", annotation_position="top right")
-        fig_ts.add_hline(y=-4, line_dash="dash", line_color="#ef4444", line_width=1.5, annotation_text="Lower Bound (-4)", annotation_position="bottom right")
+        fig_ts.add_hline(y=4, line_dash="dash", line_color="#ef4444", line_width=1.5, annotation_text="상한선 (+4)", annotation_position="top right")
+        fig_ts.add_hline(y=-4, line_dash="dash", line_color="#ef4444", line_width=1.5, annotation_text="하한선 (-4)", annotation_position="bottom right")
         fig_ts.add_hline(y=0, line_dash="solid", line_color="#475569", line_width=1)
         
         fig_ts.update_layout(
@@ -1156,7 +1231,7 @@ with tab4:
             margin=dict(l=20, r=20, t=20, b=20),
             plot_bgcolor="rgba(0,0,0,0)",
             paper_bgcolor="rgba(0,0,0,0)",
-            yaxis_title="Tracking Signal (TS)",
+            yaxis_title="트래킹 시그널 (TS)",
             xaxis=dict(gridcolor="#1e293b"),
             yaxis=dict(gridcolor="#1e293b")
         )
