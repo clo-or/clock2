@@ -281,11 +281,17 @@ target_cols = st.sidebar.multiselect(
 
 has_gt = st.sidebar.checkbox("Has Ground Truth Labels?", value=(default_gt is not None))
 if has_gt:
-    gt_col = st.sidebar.selectbox(
-        "Ground Truth Column",
-        options=[col for col in columns if col != time_col],
-        index=columns.index(default_gt) if default_gt in columns else 0
-    )
+    gt_options = [col for col in columns if col != time_col]
+    if not gt_options:
+        st.sidebar.warning("No columns available for Ground Truth.")
+        gt_col = None
+    else:
+        default_idx = gt_options.index(default_gt) if (default_gt in gt_options) else 0
+        gt_col = st.sidebar.selectbox(
+            "Ground Truth Column",
+            options=gt_options,
+            index=default_idx
+        )
 else:
     gt_col = None
 
