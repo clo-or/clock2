@@ -232,6 +232,7 @@ def fit_predict_ridge_lags(X_scaled, split_idx, lags=[1, 2, 3, 24]):
 # -------------------------------------------------------------
 # 2. SIDEBAR CONFIGURATION
 # -------------------------------------------------------------
+st.sidebar.markdown("## C321050 시계열분석 프로젝트 2")
 st.sidebar.markdown("### 📂 데이터 소스 및 변수 설정")
 
 data_source_map = {
