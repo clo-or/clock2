@@ -1006,29 +1006,53 @@ with tab4:
     st.markdown("#### 📐 적용된 모델의 수학적 원리")
     
     if model_name == "Mahalanobis Distance":
-        st.markdown('<div class="formula-box">', unsafe_allow_html=True)
-        st.write(r"**마할라노비스 거리 ($D_M$):** 피처 간의 상관관계를 반영하여 이상을 탐지합니다.")
-        st.latex(r"D_M(x) = \sqrt{(x - \mu)^T \Sigma^{-1} (x - \mu)}")
-        st.write(r"여기서 $\mu$는 다변량 평균 벡터이고, $\Sigma$는 공분산 행렬입니다. 마할라노비스 거리가 설정된 이상치 비율의 분위수 임계값을 초과하는 시점이 이상치로 판단됩니다.")
-        st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown(r"""
+        <div class="formula-box">
+        
+        **마할라노비스 거리 ($D_M$):** 피처 간의 상관관계를 반영하여 이상을 탐지합니다.
+        
+        $$D_M(x) = \sqrt{(x - \mu)^T \Sigma^{-1} (x - \mu)}$$
+        
+        여기서 $\mu$는 다변량 평균 벡터이고, $\Sigma$는 공분산 행렬입니다. 마할라노비스 거리가 설정된 이상치 비율의 분위수 임계값을 초과하는 시점이 이상치로 판단됩니다.
+        
+        </div>
+        """, unsafe_allow_html=True)
     elif model_name == "PCA Reconstruction Error":
-        st.markdown('<div class="formula-box">', unsafe_allow_html=True)
-        st.write(r"**PCA 재구성 오차 (Reconstruction Error):** 주성분 공간(Subspace)으로부터 샘플이 떨어진 거리를 측정합니다.")
-        st.latex(r"e(x) = \|x - P_k P_k^T x\|^2")
-        st.write(r"여기서 $P_k$는 상위 $k$개의 주성분 고유벡터를 포함하는 투영 행렬입니다. 재구성 오차가 높다는 것은 해당 시점의 관측치가 과거의 상관관계 구조를 따르지 않음을 나타냅니다.")
-        st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown(r"""
+        <div class="formula-box">
+        
+        **PCA 재구성 오차 (Reconstruction Error):** 주성분 공간(Subspace)으로부터 샘플이 떨어진 거리를 측정합니다.
+        
+        $$e(x) = \|x - P_k P_k^T x\|^2$$
+        
+        여기서 $P_k$는 상위 $k$개의 주성분 고유벡터를 포함하는 투영 행렬입니다. 재구성 오차가 높다는 것은 해당 시점의 관측치가 과거의 상관관계 구조를 따르지 않음을 나타냅니다.
+        
+        </div>
+        """, unsafe_allow_html=True)
     elif model_name == "Isolation Forest":
-        st.markdown('<div class="formula-box">', unsafe_allow_html=True)
-        st.write(r"**아이솔레이션 포레스트 경로 길이 점수:** 특정 데이터를 고립시키기 위해 필요한 평균 트리 깊이를 기준으로 이상 점수를 계산합니다.")
-        st.latex(r"s(x, n) = 2^{-\frac{E(h(x))}{c(n)}}")
-        st.write(r"여기서 $E(h(x))$는 생성된 의사결정 나무(Tree)들에서 데이터 $x$를 고립시키기 위한 평균 경로 길이이며, $c(n)$은 $n$개 노드로 구성된 이진 탐색 트리에서 탐색 실패 시의 평균 경로 길이입니다. 점수 $s$가 1에 가까울수록 이상치일 확률이 높습니다.")
-        st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown(r"""
+        <div class="formula-box">
+        
+        **아이솔레이션 포레스트 경로 길이 점수:** 특정 데이터를 고립시키기 위해 필요한 평균 트리 깊이를 기준으로 이상 점수를 계산합니다.
+        
+        $$s(x, n) = 2^{-\frac{E(h(x))}{c(n)}}$$
+        
+        여기서 $E(h(x))$는 생성된 의사결정 나무(Tree)들에서 데이터 $x$를 고립시키기 위한 평균 경로 길이이며, $c(n)$은 $n$개 노드로 구성된 이진 탐색 트리에서 탐색 실패 시의 평균 경로 길이입니다. 점수 $s$가 1에 가까울수록 이상치일 확률이 높습니다.
+        
+        </div>
+        """, unsafe_allow_html=True)
     elif model_name == "Rolling Hampel Filter":
-        st.markdown('<div class="formula-box">', unsafe_allow_html=True)
-        st.write(r"**롤링 햄펠 필터 (Median Absolute Deviation):** 중앙값(Median)과 MAD를 이용한 로버스트(강건한) 통계적 아웃라이어 탐지 기법입니다.")
-        st.latex(r"|x_t - m_t| > 3 \times 1.4826 \times \text{MAD}_t")
-        st.write(r"여기서 $m_t$는 롤링 윈도우 중앙값이며, $\text{MAD}_t = \text{median}(|x_{t-k..t+k} - m_t|)$는 롤링 중앙값 절대 편차입니다. 상수 1.4826은 정규분포에서 MAD가 표준편차의 일치추정량이 되도록 스케일을 조정해 주는 계수입니다.")
-        st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown(r"""
+        <div class="formula-box">
+        
+        **롤링 햄펠 필터 (Median Absolute Deviation):** 중앙값(Median)과 MAD를 이용한 로버스트(강건한) 통계적 아웃라이어 탐지 기법입니다.
+        
+        $$|x_t - m_t| > 3 \times 1.4826 \times \text{MAD}_t$$
+        
+        여기서 $m_t$는 롤링 윈도우 중앙값이며, $\text{MAD}_t = \text{median}(|x_{t-k..t+k} - m_t|)$는 롤링 중앙값 절대 편차입니다. 상수 1.4826은 정규분포에서 MAD가 표준편차의 일치추정량이 되도록 스케일을 조정해 주는 계수입니다.
+        
+        </div>
+        """, unsafe_allow_html=True)
 
     # 1. Unsupervised evaluation profiles
     st.markdown("---")
